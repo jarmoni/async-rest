@@ -5,6 +5,7 @@ import java.util.concurrent.ConcurrentLinkedQueue;
 import java.util.concurrent.ConcurrentMap;
 import java.util.concurrent.ExecutorService;
 import java.util.concurrent.Executors;
+import java.util.concurrent.TimeUnit;
 import java.util.function.Consumer;
 
 import javax.annotation.PostConstruct;
@@ -18,11 +19,16 @@ import org.springframework.beans.factory.annotation.Value;
 import org.springframework.stereotype.Service;
 import org.springframework.web.context.request.async.DeferredResult;
 
+import com.google.common.cache.Cache;
+import com.google.common.cache.CacheBuilder;
 import com.google.common.collect.Maps;
 import com.google.common.collect.Queues;
 
 @Service
 public class AsyncExampleService implements IAsyncExampleService {
+	
+	@Value("${consumer.timeout}")
+	private long consumerTimeout;
 	
 	@Value("${to.resource.consumer.thread.count:12}")
 	private int toResourceConsumerThreadCount;
@@ -36,7 +42,9 @@ public class AsyncExampleService implements IAsyncExampleService {
 	@Autowired
 	private IExampleResource resource;
 	
-	private ConcurrentMap<String, DeferredResult<String>> results = Maps.newConcurrentMap();
+	//private ConcurrentMap<String, DeferredResult<String>> results = Maps.newConcurrentMap();
+	
+	private Cache<String, DeferredResult<String>> resultCache;
 	
 	// Replacement for "real" messaging (JMS, Kafka,....)
 	// contains requests for resource
@@ -51,17 +59,21 @@ public class AsyncExampleService implements IAsyncExampleService {
 	public void asyncCall(String input, DeferredResult<String> result) {
 		
 		String correlationId = UUID.randomUUID().toString();
-		this.results.putIfAbsent(correlationId, result);
+		this.resultCache.put(correlationId, result);
+		//this.results..putIfAbsent(correlationId, result);
 		toResource.offer(new QueueEntry(correlationId, input));
 	}
 	
 	@Override
 	public int getResultCount() {
-		return this.results.size();
+//		return this.results.size();
+		return Long.valueOf(this.resultCache.size()).intValue();
 	}
 	
 	@PostConstruct
 	public void init() {
+		
+		this.resultCache = CacheBuilder.newBuilder().expireAfterAccess(this.consumerTimeout, TimeUnit.MILLISECONDS).build();
 		
 		this.toResourceConsumerExecutor = Executors.newFixedThreadPool(this.toResourceConsumerThreadCount);
 		this.fromResourceConsumerExecutor = Executors.newFixedThreadPool(this.fromResourceConsumerThreadCount);
@@ -75,9 +87,11 @@ public class AsyncExampleService implements IAsyncExampleService {
 		
 		for(int i = 0; i < this.fromResourceConsumerThreadCount; i++) {
 			this.fromResourceConsumerExecutor.submit(new ConsumerThread(this.fromResource, entry -> {
-				DeferredResult<String> result = results.get(entry.correlationId);
+//				DeferredResult<String> result = results.get(entry.correlationId);
+				DeferredResult<String> result = resultCache.getIfPresent(entry.correlationId);
 				if(result != null) {
-					results.remove(entry.correlationId);
+//					results.remove(entry.correlationId);
+					resultCache.invalidate(entry.correlationId);
 					result.setResult(entry.payload);
 				}
 			}));

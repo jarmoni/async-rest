@@ -2,15 +2,9 @@ package org.jarmoni.async_rest.controller;
 
 import static org.hamcrest.Matchers.is;
 import static org.junit.Assert.assertThat;
-import static org.junit.Assert.fail;
 
-import java.util.concurrent.CountDownLatch;
-import java.util.concurrent.ExecutorService;
-import java.util.concurrent.Executors;
-import java.util.concurrent.TimeUnit;
 import java.util.function.BiConsumer;
 
-import org.jarmoni.async_rest.resource.ExampleResource;
 import org.jarmoni.async_rest.service.IAsyncExampleService;
 import org.junit.After;
 import org.junit.Before;
@@ -19,32 +13,26 @@ import org.junit.runner.RunWith;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.beans.factory.annotation.Autowired;
-import org.springframework.beans.factory.annotation.Value;
 import org.springframework.boot.test.context.SpringBootTest;
 import org.springframework.boot.test.context.SpringBootTest.WebEnvironment;
-import org.springframework.boot.test.web.client.TestRestTemplate;
-import org.springframework.http.HttpEntity;
-import org.springframework.http.HttpHeaders;
-import org.springframework.http.HttpMethod;
 import org.springframework.http.HttpStatus;
-import org.springframework.http.MediaType;
 import org.springframework.http.ResponseEntity;
 import org.springframework.test.context.ActiveProfiles;
 import org.springframework.test.context.junit4.SpringRunner;
 
 @RunWith(SpringRunner.class)
 @SpringBootTest(webEnvironment = WebEnvironment.RANDOM_PORT)
-@ActiveProfiles("test")
-public class ExampleControllerTest {
-
-	private static final Logger LOG = LoggerFactory.getLogger(ExampleControllerTest.class);
+@ActiveProfiles("test-timed-out")
+public class ExampleControllerTestTimedOut {
+	
+	private static final Logger LOG = LoggerFactory.getLogger(ExampleControllerTestTimedOut.class);
 	
 	@Autowired
 	private ControllerTestHelper helper;
 	
 	@Autowired
 	private IAsyncExampleService asyncService;
-
+	
 	@Before
 	public void setUp() throws Exception {
 		
@@ -57,39 +45,29 @@ public class ExampleControllerTest {
 		this.helper.tearDown();
 	}
 
+	
 	@Test
-	public void testBlockingCall() throws Exception {
-
-		this.helper.makeTestCall("blocking", this.validator());
+	public void testAsyncWithDeferredResultTimedOut() throws Exception {
+		this.helper.makeTestCall("deferred", this.validatator());
 	}
-
+	
 	@Test
-	public void testAsyncWithCallable() throws Exception {
+	public void testFullyAsyncTimedOut() throws Exception {
 
-		this.helper.makeTestCall("callable", this.validator());
-	}
-
-	@Test
-	public void testAsyncWithDeferredResult() throws Exception {
-
-		this.helper.makeTestCall("deferred", this.validator());
-	}
-
-	@Test
-	public void testFullyAsync() throws Exception {
-
-		this.helper.makeTestCall("fully-async", this.validator());
+		this.helper.makeTestCall("fully-async", this.validatator());
+		// This is ugly :-(
+		Thread.sleep(2000L);
 		assertThat(this.asyncService.getResultCount(), is(0));
 	}
 	
-	private BiConsumer<ResponseEntity<String>, String> validator() {
+	private BiConsumer<ResponseEntity<String>, String> validatator() {
 		
 		return (response, input) -> {
 			LOG.info("Status-Code={}", response.getStatusCode().toString());
 			LOG.info("Body={}", response.getBody());
-			
 			assertThat(response.getStatusCode(), is(HttpStatus.OK));
-			assertThat(response.getBody(), is(ExampleResource.RETURN_VALUE + input));
+			assertThat(response.getBody(), is("error"));
 		};
 	}
+
 }
