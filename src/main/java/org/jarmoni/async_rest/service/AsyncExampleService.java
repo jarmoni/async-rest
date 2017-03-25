@@ -40,6 +40,7 @@ public class AsyncExampleService implements IAsyncExampleService {
 	@Autowired
 	private IExampleResource resource;
 	
+	// Holds future-results until they'll either be finished or timed-out. Does this approach perform? Hmm...
 	private Cache<String, DeferredResult<String>> resultCache;
 	
 	// Replacement for "real" messaging (JMS, Kafka,....)
