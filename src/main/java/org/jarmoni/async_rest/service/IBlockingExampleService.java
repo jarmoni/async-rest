@@ -1,6 +1,6 @@
 package org.jarmoni.async_rest.service;
 
-public interface IExampleService {
+public interface IBlockingExampleService {
 	
 	String syncCall(String input) throws Exception;
 
