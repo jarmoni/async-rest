@@ -43,7 +43,7 @@ public class ExampleController {
 		return () -> blocksingService.syncCall(input);
 	}
 
-	// Same as above but with use of DeferredResult instead of Callable
+	// Same as above but with use of DeferredResult instead of Callable. There is also a timeout set so client won't have to wait forever...
 	@RequestMapping(value = "/deferred/{input}", method = RequestMethod.GET, produces = "text/html")
 	public DeferredResult<String> asyncWithDeferredResult(@PathVariable String input) throws Exception {
 
